@@ -1,18 +1,60 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+from flask_login import UserMixin, login_user, LoginManager
 
 app = Flask(__name__)
+# teste executar sem isso e veja o log de erro requisitando uma secret key
+app.config['SECRET_KEY'] = "minha_chave_123"
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ecommerce.db'
 
+login_manager = LoginManager()
 db = SQLAlchemy(app)
+login_manager.init_app(app)
+login_manager.login_view = 'login' #nome da rota
+#executar lá no swagger
 CORS(app)
+
+class User(db.Model, UserMixin):
+  id = db.Column(db.Integer, primary_key=True)
+  username = db.Column(db.String(80), nullable=False, unique=True)
+  password = db.Column(db.String(80), nullable=True)
+
+#comandos para criar o bd
+# 1 - db.drop_all()
+# 2 - db.create_all()
+# 3 - db.session.commit()
+# 4 - exit()
+
+#explicação
+# 1 - exclui tudo
+# 2 - cria o bd
+# 3 - commita as alterações
+# 4 - sai do shell
+
+#criando um usuário pelo shell:
+# 1 - user = User(username="admin", password="123")
+# 2 - db.session.add(user)
+# 3 - db.session.commit()
+# 4 - exit()
 
 class Product(db.Model):
   id = db.Column(db.Integer, primary_key=True)
-  name = db.Column(db.String(120), nullable=False) # não pode ser falso
+  name = db.Column(db.String(120), nullable=False) # não pode ser true
   price = db.Column(db.Float, nullable=False)
   description = db.Column(db.Text, nullable=True)
+
+@app.route('/login', methods=['POST'])
+def login():
+  data = request.json
+  
+  user = User.query.filter_by(username=data.get("username")).first()
+  
+  if user and data.get("password") == user.password:
+      login_user(user)
+      return jsonify({"message": "Logged in successfully"})
+      
+  return jsonify({"message": "Unauthorized. Invalid credentials"}), 401 # credenciais inválidas
 
 @app.route('/api/products/add', methods=["POST"])
 def add_product():
