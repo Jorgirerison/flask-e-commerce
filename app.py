@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-from flask_login import UserMixin, login_user, LoginManager
+from flask_login import UserMixin, login_user, LoginManager, login_required, logout_user
 
 app = Flask(__name__)
 # teste executar sem isso e veja o log de erro requisitando uma secret key
@@ -20,7 +20,7 @@ class User(db.Model, UserMixin):
   username = db.Column(db.String(80), nullable=False, unique=True)
   password = db.Column(db.String(80), nullable=True)
 
-#comandos para criar o bd
+#comandos para criar o bd -> flask shell
 # 1 - db.drop_all()
 # 2 - db.create_all()
 # 3 - db.session.commit()
@@ -44,6 +44,11 @@ class Product(db.Model):
   price = db.Column(db.Float, nullable=False)
   description = db.Column(db.Text, nullable=True)
 
+#autenticação
+@login_manager.user_loader
+def load_user(user_id):
+  return User.query.get(int(user_id))
+
 @app.route('/login', methods=['POST'])
 def login():
   data = request.json
@@ -56,7 +61,14 @@ def login():
       
   return jsonify({"message": "Unauthorized. Invalid credentials"}), 401 # credenciais inválidas
 
+@app.route('/logout', methods=['POST'])
+@login_required
+def logout():
+  logout_user()
+  return jsonify({"message": "Logout successfully"})
+
 @app.route('/api/products/add', methods=["POST"])
+@login_required
 def add_product():
   data = request.json
   if 'name' in data and 'price' in data:
@@ -67,6 +79,7 @@ def add_product():
   return jsonify({"message": "Failed to add the product"}), 400 # solicitação malformada
 
 @app.route('/api/products/delete/<int:product_id>', methods = ["DELETE"])
+@login_required
 def delete_product(product_id):
   product = Product.query.get(product_id)
   if product:
@@ -88,6 +101,7 @@ def get_product_details(product_id):
   return jsonify({"message": "Not Found. Product not available"}), 404
 
 @app.route('/api/products/update/<int:product_id>', methods = ["PUT"])
+@login_required
 def update_product(product_id):
   product = Product.query.get(product_id)
   if not product:
